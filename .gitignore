@@ -1,0 +1,8 @@
+# virtual environment
+.myenv/
+
+# database file
+db.sqlite3
+
+# pycache files
+__pycache__/
