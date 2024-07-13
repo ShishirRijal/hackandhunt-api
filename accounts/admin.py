@@ -25,7 +25,7 @@ class CustomUserAdmin(UserAdmin):
         (
             None,
             {
-                "fields": ("name", "is_active", "is_superuser"),
+                "fields": ("name", "email", "is_active", "is_superuser"),
             },
         ),
     )
