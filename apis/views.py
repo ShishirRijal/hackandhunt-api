@@ -1,6 +1,9 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db.models import F, Window
+from django.db.models.functions import RowNumber
+
 
 from apis.models import *
 
@@ -29,3 +32,17 @@ class RiddleViewSet(viewsets.ModelViewSet):
         else:
             # Otherwise, return all riddles
             return Riddle.objects.all()
+
+
+class LeaderboardViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsSuperUserOrReadOnly]
+    queryset = Leaderboard.objects.all()
+    serializer_class = LeaderboardSerializer
+
+    def get_queryset(self):
+        return Leaderboard.objects.annotate(
+            rank=Window(
+                expression=RowNumber(),
+                order_by=[F("current_level").desc(), F("updated_at").asc()],
+            )
+        )
