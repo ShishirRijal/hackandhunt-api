@@ -46,3 +46,19 @@ class LeaderboardViewSet(viewsets.ModelViewSet):
                 order_by=[F("current_level").desc(), F("updated_at").asc()],
             )
         )
+
+
+class CurrentLevelViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        # Get the current user's TeamProgress
+        try:
+            progress = Leaderboard.objects.get(team_id=request.user.id)
+            serializer = UserCurrentLevelSerializer(progress)
+            print(f"sera: {(serializer.data)['current_level']}")
+            return Response(serializer.data)
+        except Leaderboard.DoesNotExist:
+            return Response({"detail": "Team progress not found."}, status=404)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=500)
