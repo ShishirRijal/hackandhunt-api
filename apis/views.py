@@ -1,6 +1,9 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db.models import F, Window
+from django.db.models.functions import RowNumber
+
 
 from apis.models import *
 
@@ -29,3 +32,33 @@ class RiddleViewSet(viewsets.ModelViewSet):
         else:
             # Otherwise, return all riddles
             return Riddle.objects.all()
+
+
+class LeaderboardViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsSuperUserOrReadOnly]
+    queryset = Leaderboard.objects.all()
+    serializer_class = LeaderboardSerializer
+
+    def get_queryset(self):
+        return Leaderboard.objects.annotate(
+            rank=Window(
+                expression=RowNumber(),
+                order_by=[F("current_level").desc(), F("updated_at").asc()],
+            )
+        )
+
+
+class CurrentLevelViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        # Get the current user's TeamProgress
+        try:
+            progress = Leaderboard.objects.get(team_id=request.user.id)
+            serializer = UserCurrentLevelSerializer(progress)
+            print(f"sera: {(serializer.data)['current_level']}")
+            return Response(serializer.data)
+        except Leaderboard.DoesNotExist:
+            return Response({"detail": "Team progress not found."}, status=404)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=500)
