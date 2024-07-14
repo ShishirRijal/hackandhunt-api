@@ -4,6 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
+from django.db.models import Count
+
 
 from rest_framework.permissions import IsAuthenticated
 
@@ -18,6 +20,15 @@ class LevelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperUserOrReadOnly]
     queryset = Level.objects.all()
     serializer_class = LevelSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        level_id = kwargs.get("pk")
+        queryset = self.queryset.filter(number=level_id)
+        level = queryset.first()
+        if level is None:
+            raise NotFound(detail=f"Level with number {level_id} not found.")
+        serializer = self.get_serializer(level)
+        return Response(serializer.data)
 
 
 class RiddleViewSet(viewsets.ModelViewSet):
