@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
@@ -42,8 +42,14 @@ class RiddleViewSet(viewsets.ModelViewSet):
         level_id = self.request.query_params.get("level_id")
 
         if level_id is None:
-            return Riddle.objects.all()
+            raise PermissionDenied(detail="level_id is required.")
         else:
+            # Check if user is currently on this specific level
+            progress = Leaderboard.objects.get(team_id=user.id)
+            if progress.current_level < int(level_id) - 1:
+                raise PermissionDenied(
+                    detail=f"Cannot access riddles for level {level_id}."
+                )
             N = 3  # Number of submissions required to lock all trap riddles
             # Get all riddles for the given level
             riddles = Riddle.objects.filter(level=level_id)
@@ -66,6 +72,13 @@ class RiddleViewSet(viewsets.ModelViewSet):
         riddle = queryset.first()
         if riddle is None:
             raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+        # Check if user is currently on this specific level
+        user = request.user
+        progress = Leaderboard.objects.get(team_id=user.id)
+        if progress.current_level < riddle.level.number - 1:
+            raise PermissionDenied(
+                detail=f"Cannot access riddle from level {riddle.level.number}."
+            )
         serializer = self.get_serializer(riddle)
         return Response(serializer.data)
 
