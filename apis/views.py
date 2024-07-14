@@ -1,10 +1,11 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.exceptions import NotFound
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
 
+from rest_framework.permissions import IsAuthenticated
 
 from apis.models import *
 
@@ -42,6 +43,39 @@ class RiddleViewSet(viewsets.ModelViewSet):
             raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
         serializer = self.get_serializer(riddle)
         return Response(serializer.data)
+
+    # Verify the answer of the riddle
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def verify(self, request, pk=None):
+        riddle = self.retrieve(request, pk=pk).data
+        user = request.user
+        answer = request.data.get("answer")
+
+        if answer is None:
+            return Response(
+                {"error": "Answer is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if riddle["answer"].lower().strip() == answer.lower().strip():
+            if riddle["is_trap"] == True:
+                # Check if the user has already submitted this trap riddle
+                if not UserTrapSubmission.objects.filter(
+                    user=user, level_id=riddle["level"], riddle_id=riddle["riddle_id"]
+                ).exists():
+                    UserTrapSubmission.objects.create(
+                        user=user,
+                        level_id=riddle["level"],
+                        riddle_id=riddle["riddle_id"],
+                    )
+                return Response({"result": "correct", "trap": True})
+            # correct answer and not a trap
+            # update the user's current level
+            progress = Leaderboard.objects.get(team_id=user.id)
+            progress.current_level = riddle["level"]
+            progress.save()
+            return Response({"result": "correct", "trap": False})
+        else:
+            return Response({"result": "incorrect", "trap": riddle["is_trap"]})
 
 
 class LeaderboardViewSet(viewsets.ModelViewSet):
