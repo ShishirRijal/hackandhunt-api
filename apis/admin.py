@@ -5,3 +5,4 @@ from apis.models import *
 admin.site.register(Level)
 admin.site.register(Riddle)
 admin.site.register(Leaderboard)
+admin.site.register(UserTrapSubmission)
