@@ -38,13 +38,27 @@ class RiddleViewSet(viewsets.ModelViewSet):
 
     # Get riddles according to the level_id
     def get_queryset(self):
+        user = self.request.user
         level_id = self.request.query_params.get("level_id")
-        if level_id is not None:
-            # Filter by level_id if provided
-            return Riddle.objects.filter(level_id=level_id)
-        else:
-            # Otherwise, return all riddles
+
+        if level_id is None:
             return Riddle.objects.all()
+        else:
+            N = 3  # Number of submissions required to lock all trap riddles
+            # Get all riddles for the given level
+            riddles = Riddle.objects.filter(level=level_id)
+
+            # Find the riddle IDs that have more than 5 submissions for the current user and level
+            trap_submissions = UserTrapSubmission.objects.filter(
+                user=user, level_id=level_id
+            ).count()
+
+            # If the user has submitted more than N trap riddles, return only non-trap riddles
+            if trap_submissions > N:
+                return riddles.filter(is_trap=False)
+            # else, return all riddles
+            else:
+                return riddles.all()
 
     def retrieve(self, request, *args, **kwargs):
         riddle_id = kwargs.get("pk")
