@@ -1,10 +1,13 @@
-from rest_framework import viewsets, permissions
-from rest_framework.exceptions import NotFound
+from rest_framework import viewsets, permissions, status
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
+from django.db.models import Count
 
+
+from rest_framework.permissions import IsAuthenticated
 
 from apis.models import *
 
@@ -18,6 +21,15 @@ class LevelViewSet(viewsets.ModelViewSet):
     queryset = Level.objects.all()
     serializer_class = LevelSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        level_id = kwargs.get("pk")
+        queryset = self.queryset.filter(number=level_id)
+        level = queryset.first()
+        if level is None:
+            raise NotFound(detail=f"Level with number {level_id} not found.")
+        serializer = self.get_serializer(level)
+        return Response(serializer.data)
+
 
 class RiddleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperUserOrReadOnly]
@@ -26,13 +38,33 @@ class RiddleViewSet(viewsets.ModelViewSet):
 
     # Get riddles according to the level_id
     def get_queryset(self):
+        user = self.request.user
         level_id = self.request.query_params.get("level_id")
-        if level_id is not None:
-            # Filter by level_id if provided
-            return Riddle.objects.filter(level_id=level_id)
+
+        if level_id is None:
+            raise PermissionDenied(detail="level_id is required.")
         else:
-            # Otherwise, return all riddles
-            return Riddle.objects.all()
+            # Check if user is currently on this specific level
+            progress = Leaderboard.objects.get(team_id=user.id)
+            if progress.current_level < int(level_id) - 1:
+                raise PermissionDenied(
+                    detail=f"Cannot access riddles for level {level_id}."
+                )
+            N = 3  # Number of submissions required to lock all trap riddles
+            # Get all riddles for the given level
+            riddles = Riddle.objects.filter(level=level_id)
+
+            # Find the riddle IDs that have more than 5 submissions for the current user and level
+            trap_submissions = UserTrapSubmission.objects.filter(
+                user=user, level_id=level_id
+            ).count()
+
+            # If the user has submitted more than N trap riddles, return only non-trap riddles
+            if trap_submissions > N:
+                return riddles.filter(is_trap=False)
+            # else, return all riddles
+            else:
+                return riddles.all()
 
     def retrieve(self, request, *args, **kwargs):
         riddle_id = kwargs.get("pk")
@@ -40,8 +72,48 @@ class RiddleViewSet(viewsets.ModelViewSet):
         riddle = queryset.first()
         if riddle is None:
             raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+        # Check if user is currently on this specific level
+        user = request.user
+        progress = Leaderboard.objects.get(team_id=user.id)
+        if progress.current_level < riddle.level.number - 1:
+            raise PermissionDenied(
+                detail=f"Cannot access riddle from level {riddle.level.number}."
+            )
         serializer = self.get_serializer(riddle)
         return Response(serializer.data)
+
+    # Verify the answer of the riddle
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def verify(self, request, pk=None):
+        riddle = self.retrieve(request, pk=pk).data
+        user = request.user
+        answer = request.data.get("answer")
+
+        if answer is None:
+            return Response(
+                {"error": "Answer is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if riddle["answer"].lower().strip() == answer.lower().strip():
+            if riddle["is_trap"] == True:
+                # Check if the user has already submitted this trap riddle
+                if not UserTrapSubmission.objects.filter(
+                    user=user, level_id=riddle["level"], riddle_id=riddle["riddle_id"]
+                ).exists():
+                    UserTrapSubmission.objects.create(
+                        user=user,
+                        level_id=riddle["level"],
+                        riddle_id=riddle["riddle_id"],
+                    )
+                return Response({"result": "correct", "trap": True})
+            # correct answer and not a trap
+            # update the user's current level
+            progress = Leaderboard.objects.get(team_id=user.id)
+            progress.current_level = riddle["level"]
+            progress.save()
+            return Response({"result": "correct", "trap": False})
+        else:
+            return Response({"result": "incorrect", "trap": riddle["is_trap"]})
 
 
 class LeaderboardViewSet(viewsets.ModelViewSet):
