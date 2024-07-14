@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from rest_framework.exceptions import NotFound
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
@@ -33,6 +34,15 @@ class RiddleViewSet(viewsets.ModelViewSet):
             # Otherwise, return all riddles
             return Riddle.objects.all()
 
+    def retrieve(self, request, *args, **kwargs):
+        riddle_id = kwargs.get("pk")
+        queryset = self.queryset.filter(riddle_id=riddle_id)
+        riddle = queryset.first()
+        if riddle is None:
+            raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+        serializer = self.get_serializer(riddle)
+        return Response(serializer.data)
+
 
 class LeaderboardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperUserOrReadOnly]
@@ -62,3 +72,28 @@ class CurrentLevelViewSet(viewsets.ViewSet):
             return Response({"detail": "Team progress not found."}, status=404)
         except Exception as e:
             return Response({"detail": str(e)}, status=500)
+
+
+# class UserRiddleAttemptViewSet(viewsets.ModelViewSet):
+#     queryset = UserRiddleAttempt.objects.all()
+#     serializer_class = UserRiddleAttemptSerializer
+
+#     @action(detail=False, methods=["post"])
+#     def submit_answer(self, request):
+#         user = request.user
+#         riddle_id = request.data.get("riddle_id")
+#         answer = request.data.get("answer")
+
+#         riddle = Riddle.objects.get(id=riddle_id)
+#         is_correct = riddle.answer == answer
+#         is_trap = riddle.is_trap
+
+#         attempt = UserRiddleAttempt.objects.create(
+#             user=user, riddle=riddle, is_correct=is_correct, is_trap=is_trap
+#         )
+
+#         if is_correct:
+#             user.score += 10
+#             user.save()
+
+#         return Response(UserRiddleAttemptSerializer(attempt).data)
