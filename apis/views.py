@@ -41,7 +41,7 @@ class RiddleViewSet(viewsets.ModelViewSet):
         data = request.data
         level_number = data.get("level")
         level = Level.objects.get(number=level_number)
-        data["level"] = level.id
+        data["level"] = level.number
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         # print(f"serializer: {serializer.data}")
@@ -69,7 +69,7 @@ class RiddleViewSet(viewsets.ModelViewSet):
     # Get riddles according to the level_id
     def get_queryset(self):
         user = self.request.user
-        level_id = self.request.query_params.get("level_id")
+        level_id = self.request.query_params.get("level")
 
         if level_id is None:
             return self.queryset.all()

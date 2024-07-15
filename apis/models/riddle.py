@@ -5,7 +5,7 @@ class Riddle(models.Model):
     riddle_id = models.CharField(null=False, unique=True, max_length=10)
     question = models.TextField(null=False)
     answer = models.CharField(null=False, max_length=255)
-    level = models.ForeignKey("Level", on_delete=models.CASCADE)
+    level = models.ForeignKey("Level", to_field="number", on_delete=models.CASCADE)
     is_trap = models.BooleanField(default=False)
     code = models.TextField(null=True)
     image = models.TextField(null=True)
