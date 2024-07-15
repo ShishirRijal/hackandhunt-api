@@ -23,7 +23,7 @@ class LevelViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         level_id = kwargs.get("pk")
-        queryset = self.queryset.filter(number=level_id)
+        queryset = self.queryset.filter(id=level_id)
         level = queryset.first()
         if level is None:
             raise NotFound(detail=f"Level with number {level_id} not found.")
