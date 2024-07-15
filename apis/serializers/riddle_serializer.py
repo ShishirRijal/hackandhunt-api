@@ -6,4 +6,11 @@ class RiddleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Riddle
         fields = "__all__"
-        read_only_fields = ["riddle_id"]
+        read_only_fields = ["id"]
+
+
+class RiddleUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Riddle
+        fields = "__all__"
+        read_only_fields = ["riddle_id", "id"]

@@ -44,8 +44,13 @@ class RiddleViewSet(viewsets.ModelViewSet):
         data["level"] = level.id
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
+        # print(f"serializer: {serializer.data}")
         serializer.save()
         return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        self.serializer_class = RiddleUpdateSerializer
+        return super().partial_update(request, *args, **kwargs)
 
     # def partial_update(self, request, *args, **kwargs):
     #     riddle_id = kwargs.get("pk")
@@ -69,12 +74,13 @@ class RiddleViewSet(viewsets.ModelViewSet):
         if level_id is None:
             return self.queryset.all()
         else:
-            # Check if user is currently on this specific level
-            progress = Leaderboard.objects.get(team_id=user.id)
-            if progress.current_level < int(level_id) - 1:
-                raise PermissionDenied(
-                    detail=f"Cannot access riddles for level {level_id}."
-                )
+            if not user.is_superuser:
+                # Check if user is currently on this specific level
+                progress = Leaderboard.objects.get(team_id=user.id)
+                if progress.current_level < int(level_id) - 1:
+                    raise PermissionDenied(
+                        detail=f"Cannot access riddles for level {level_id}."
+                    )
             N = 3  # Number of submissions required to lock all trap riddles
             # Get all riddles for the given level
             riddles = Riddle.objects.filter(level=level_id)
@@ -93,10 +99,10 @@ class RiddleViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         riddle_id = kwargs.get("pk")
-        queryset = self.queryset.filter(riddle_id=riddle_id)
+        queryset = self.queryset.filter(id=riddle_id)
         riddle = queryset.first()
         if riddle is None:
-            raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+            raise NotFound(detail=f"Riddle with id {riddle_id} not found.")
         # Check if user is currently on this specific level
         user = request.user
         if not user.is_superuser:

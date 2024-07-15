@@ -15,11 +15,9 @@ class Riddle(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        # Generate the unique number
         # Extract the current level number
         level_num = self.level.number  # Assuming your Level model has an 'id' field
         # Grab number from request body
-
         if not self.riddle_id.startswith("L"):  # means we are creating new one
             number = int(self.riddle_id)
             # Generate the new riddle number
