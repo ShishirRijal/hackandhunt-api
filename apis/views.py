@@ -1,11 +1,9 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, generics
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
-from django.shortcuts import get_object_or_404
-
 
 from rest_framework.permissions import IsAuthenticated
 
@@ -176,3 +174,16 @@ class CurrentLevelViewSet(viewsets.ViewSet):
             return Response({"detail": "Team progress not found."}, status=404)
         except Exception as e:
             return Response({"detail": str(e)}, status=500)
+
+
+class UserProfileView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def get(self, request, *args, **kwargs):
+        user = self.get_object()
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
