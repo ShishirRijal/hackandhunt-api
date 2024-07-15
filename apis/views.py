@@ -4,14 +4,16 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.contrib.auth import get_user_model
 
-from rest_framework.permissions import IsAuthenticated
 
 from apis.models import *
-
-
 from apis.serializers import *
+
 from .permissions import IsSuperUserOrReadOnly
+
+User = get_user_model()
 
 
 class LevelViewSet(viewsets.ModelViewSet):
@@ -187,3 +189,14 @@ class UserProfileView(generics.RetrieveAPIView):
         user = self.get_object()
         serializer = self.get_serializer(user)
         return Response(serializer.data)
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = UserProfileSerializer
+    queryset = User.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
