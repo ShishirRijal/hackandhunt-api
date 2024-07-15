@@ -13,7 +13,7 @@ class IsSuperUserOrReadOnly(permissions.BasePermission):
             return request.user and request.user.is_authenticated
 
         # Allow POST only for superusers
-        if request.method == "POST":
+        if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
             return request.user and request.user.is_superuser
 
         return False

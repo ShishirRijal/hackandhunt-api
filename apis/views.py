@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import F, Window
 from django.db.models.functions import RowNumber
-from django.db.models import Count
+from django.shortcuts import get_object_or_404
 
 
 from rest_framework.permissions import IsAuthenticated
@@ -21,14 +21,14 @@ class LevelViewSet(viewsets.ModelViewSet):
     queryset = Level.objects.all()
     serializer_class = LevelSerializer
 
-    def retrieve(self, request, *args, **kwargs):
-        level_id = kwargs.get("pk")
-        queryset = self.queryset.filter(number=level_id)
-        level = queryset.first()
-        if level is None:
-            raise NotFound(detail=f"Level with number {level_id} not found.")
-        serializer = self.get_serializer(level)
-        return Response(serializer.data)
+    # def retrieve(self, request, *args, **kwargs):
+    #     level_id = kwargs.get("pk")
+    #     queryset = self.queryset.filter(id=level_id)
+    #     level = queryset.first()
+    #     if level is None:
+    #         raise NotFound(detail=f"Level with number {level_id} not found.")
+    #     serializer = self.get_serializer(level)
+    #     return Response(serializer.data)
 
 
 class RiddleViewSet(viewsets.ModelViewSet):
@@ -36,20 +36,51 @@ class RiddleViewSet(viewsets.ModelViewSet):
     queryset = Riddle.objects.all()
     serializer_class = RiddleSerializer
 
+    # update the POST method to link level number to level_id
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        level_number = data.get("level")
+        level = Level.objects.get(number=level_number)
+        data["level"] = level.number
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        # print(f"serializer: {serializer.data}")
+        serializer.save()
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        self.serializer_class = RiddleUpdateSerializer
+        return super().partial_update(request, *args, **kwargs)
+
+    # def partial_update(self, request, *args, **kwargs):
+    #     riddle_id = kwargs.get("pk")
+    #     print(f"riddle_id: {riddle_id}")
+    #     queryset = self.queryset.filter(id=riddle_id)
+    #     print(f"queryset: {queryset}")
+    #     riddle = queryset.first()
+    #     print(f"riddle: {riddle}")
+    #     if riddle is None:
+    #         raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+    #     serializer = self.get_serializer(riddle, data=request.data, partial=True)
+    #     serializer.is_valid(raise_exception=True)
+    #     self.perform_update(serializer)
+    #     return Response(serializer.data)
+
     # Get riddles according to the level_id
     def get_queryset(self):
         user = self.request.user
-        level_id = self.request.query_params.get("level_id")
+        level_id = self.request.query_params.get("level")
 
         if level_id is None:
-            raise PermissionDenied(detail="level_id is required.")
+            return self.queryset.all()
         else:
-            # Check if user is currently on this specific level
-            progress = Leaderboard.objects.get(team_id=user.id)
-            if progress.current_level < int(level_id) - 1:
-                raise PermissionDenied(
-                    detail=f"Cannot access riddles for level {level_id}."
-                )
+            if not user.is_superuser:
+                # Check if user is currently on this specific level
+                progress = Leaderboard.objects.get(team_id=user.id)
+                if progress.current_level < int(level_id) - 1:
+                    raise PermissionDenied(
+                        detail=f"Cannot access riddles for level {level_id}."
+                    )
             N = 3  # Number of submissions required to lock all trap riddles
             # Get all riddles for the given level
             riddles = Riddle.objects.filter(level=level_id)
@@ -68,17 +99,18 @@ class RiddleViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         riddle_id = kwargs.get("pk")
-        queryset = self.queryset.filter(riddle_id=riddle_id)
+        queryset = self.queryset.filter(id=riddle_id)
         riddle = queryset.first()
         if riddle is None:
-            raise NotFound(detail=f"Riddle with riddle_id {riddle_id} not found.")
+            raise NotFound(detail=f"Riddle with id {riddle_id} not found.")
         # Check if user is currently on this specific level
         user = request.user
-        progress = Leaderboard.objects.get(team_id=user.id)
-        if progress.current_level < riddle.level.number - 1:
-            raise PermissionDenied(
-                detail=f"Cannot access riddle from level {riddle.level.number}."
-            )
+        if not user.is_superuser:
+            progress = Leaderboard.objects.get(team_id=user.id)
+            if progress.current_level < riddle.level.number - 1:
+                raise PermissionDenied(
+                    detail=f"Cannot access riddle from level {riddle.level.number}."
+                )
         serializer = self.get_serializer(riddle)
         return Response(serializer.data)
 
@@ -144,28 +176,3 @@ class CurrentLevelViewSet(viewsets.ViewSet):
             return Response({"detail": "Team progress not found."}, status=404)
         except Exception as e:
             return Response({"detail": str(e)}, status=500)
-
-
-# class UserRiddleAttemptViewSet(viewsets.ModelViewSet):
-#     queryset = UserRiddleAttempt.objects.all()
-#     serializer_class = UserRiddleAttemptSerializer
-
-#     @action(detail=False, methods=["post"])
-#     def submit_answer(self, request):
-#         user = request.user
-#         riddle_id = request.data.get("riddle_id")
-#         answer = request.data.get("answer")
-
-#         riddle = Riddle.objects.get(id=riddle_id)
-#         is_correct = riddle.answer == answer
-#         is_trap = riddle.is_trap
-
-#         attempt = UserRiddleAttempt.objects.create(
-#             user=user, riddle=riddle, is_correct=is_correct, is_trap=is_trap
-#         )
-
-#         if is_correct:
-#             user.score += 10
-#             user.save()
-
-#         return Response(UserRiddleAttemptSerializer(attempt).data)
