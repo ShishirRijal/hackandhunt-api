@@ -8,14 +8,14 @@ class CustomUserAdmin(UserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = CustomUser
-    list_display = ["username", "name", "email", "is_active", "is_superuser"]
+    list_display = ["username", "id", "name", "email", "is_active", "is_superuser"]
 
     # Define fieldsets for editing existing users in the admin panel
     fieldsets = UserAdmin.fieldsets + (
         (
             None,
             {
-                "fields": ("name",),
+                "fields": ("name", "image"),
             },
         ),
     )
@@ -25,7 +25,7 @@ class CustomUserAdmin(UserAdmin):
         (
             None,
             {
-                "fields": ("name", "email", "is_active", "is_superuser"),
+                "fields": ("name", "email", "image", "is_active", "is_superuser"),
             },
         ),
     )

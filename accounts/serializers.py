@@ -6,14 +6,22 @@ from .models import CustomUser
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["id", "username", "email", "name", "is_active", "is_superuser"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "name",
+            "image",
+            "is_active",
+            "is_superuser",
+        ]
         read_only_fields = ["is_active", "is_superuser"]
 
 
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["username", "email", "name", "password"]
+        fields = ["username", "email", "name", "image", "password"]
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
@@ -21,6 +29,7 @@ class SignupSerializer(serializers.ModelSerializer):
             username=validated_data["username"],
             email=validated_data["email"],
             name=validated_data["name"],
+            image=validated_data["image"],
             password=validated_data["password"],
         )
         return user
