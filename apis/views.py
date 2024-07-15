@@ -21,14 +21,14 @@ class LevelViewSet(viewsets.ModelViewSet):
     queryset = Level.objects.all()
     serializer_class = LevelSerializer
 
-    def retrieve(self, request, *args, **kwargs):
-        level_id = kwargs.get("pk")
-        queryset = self.queryset.filter(id=level_id)
-        level = queryset.first()
-        if level is None:
-            raise NotFound(detail=f"Level with number {level_id} not found.")
-        serializer = self.get_serializer(level)
-        return Response(serializer.data)
+    # def retrieve(self, request, *args, **kwargs):
+    #     level_id = kwargs.get("pk")
+    #     queryset = self.queryset.filter(id=level_id)
+    #     level = queryset.first()
+    #     if level is None:
+    #         raise NotFound(detail=f"Level with number {level_id} not found.")
+    #     serializer = self.get_serializer(level)
+    #     return Response(serializer.data)
 
 
 class RiddleViewSet(viewsets.ModelViewSet):
